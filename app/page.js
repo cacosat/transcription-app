@@ -23,15 +23,14 @@ export default function Home() {
   };
   
   const input = {
-    file: "https://replicate.delivery/pbxt/JcL0ttZLlbchC0tL9ZtB20phzeXCSuMm0EJNdLYElgILoZci/AI%20should%20be%20open-sourced.mp3",
+    file: "https://drive.google.com/file/d/1cTxN97Nj4LFI94dg3e6KR3PI_Z66t3Tp/view?usp=drive_link",
     prompt: "LLama, AI, Meta.",
     file_url: "",
     language: "en",
     translate: false,
-    num_speakers: 2,
     group_segments: true,
     offset_seconds: 0,
-    transcript_output_format: "both"
+    transcript_output_format: "segments_only",
   }
 
 
@@ -81,7 +80,14 @@ export default function Home() {
   };
 
   const handleCopy = () => {
-    const textToCopy = activeTab === 'formatted' ? formattedTranscription : rawTranscription;
+    let textToCopy;
+    // const textToCopy = ; // activeTab === 'formatted' ? formattedTranscription : rawTranscription
+    try {
+      textToCopy = JSON.stringify(rawTranscription, null, 2);
+    } catch (error) {
+      console.error('Error stringifying rawTranscription:', error);
+      textToCopy = String(rawTranscription); // Fallback to basic string conversion
+    }
     navigator.clipboard.writeText(textToCopy);
   };
 

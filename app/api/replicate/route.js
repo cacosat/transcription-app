@@ -7,6 +7,7 @@ export async function POST(req) {
     });
     
     try {
+      const input = req.body.input;
       const output = await replicate.run(
         "thomasmol/whisper-diarization:aae6db69a923a6eab6bc3ec098148a8c9c999685be89f428a4a6072fca544d26",
         {
