@@ -5,31 +5,22 @@ import { Upload, Settings, FileText, Code, RotateCcw, Copy, Download } from 'luc
 import { handleTranscribe } from './actions';
 
 export default function Home() {
-  // file
+  // uploadfile
   const [file, setFile] = useState(null);
 
-  // transcription config
-  const [diarization, setDiarization] = useState(false);
-  const [language, setLanguage] = useState('');
-  const [groupSegments, setGroupSegments] = useState(true);
-  const [outputFormat, setOutputFormat] = useState('segments_only');
-  const [numSpeakers, setNumSpeakers] = useState('');
-  const [prompt, setPrompt] = useState('');
-
   // transcription result
-  const [loading, setLoading] = useState(false);
   const [isTranscribed, setIsTranscribed] = useState(false);
   const [rawTranscription, setRawTranscription] = useState('');
   const [formattedTranscription, setFormattedTranscription] = useState('');
   const [activeTab, setActiveTab] = useState('formatted');
 
-  const handleFileUpload = (event) => {
+  const handleUpload = async (event) => {
     const uploadedFile = event.target.files?.[0];
     if (uploadedFile) {
-      setFile(uploadedFile);
-      console.log(`uploaded fil succesfully:`, uploadedFile)
+      setFile(uploadedFile)
+      console.log('file uploaded succesfully into hook', file)
     }
-  };
+  }
 
   const handleRestart = () => {
     setRawTranscription('');
@@ -72,25 +63,12 @@ export default function Home() {
         <div className="px-4 py-6 sm:px-0">
           <div className="border-4 border-dashed border-gray-200 rounded-lg p-6">
             <div className="space-y-6">
-              
-              {/* File Upload Section */}
-              <UploadFile file={file} handleFileUpload={handleFileUpload} />
 
               {/* Transcription functionality */}
               <Transcription 
-                diarization={diarization}
-                setDiarization={setDiarization}
-                language={language}
-                setLanguage={setLanguage}
-                groupSegments={groupSegments}
-                setGroupSegments={setGroupSegments}
-                outputFormat={outputFormat}
-                setOutputFormat={setOutputFormat}
-                numSpeakers={numSpeakers}
-                setNumSpeakers={setNumSpeakers}
-                prompt={prompt}
-                setPrompt={setPrompt}
                 handleTranscribe={handleTranscribe}
+                handleUpload={handleUpload}
+                file={file}
               />
 
               {/* Transcription Results */}
@@ -111,8 +89,7 @@ export default function Home() {
   );
 }
 
-function UploadFile ({file, handleFileUpload}) {
-
+function UploadFile ({file, handleUpload}) {
   return (
     <div>
       <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700">
@@ -121,15 +98,14 @@ function UploadFile ({file, handleFileUpload}) {
       <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
         <div className="space-y-1 text-center">
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
-          <div className="flex text-sm text-gray-600">
+          <div className="flex justify-center text-sm text-gray-600">
             <label
               htmlFor="file-upload"
-              className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+              className="relative text-center cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
             >
               <span>Upload a file</span>
-              <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileUpload} />
+              <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleUpload} />
             </label>
-            <p className="pl-1">or drag and drop</p>
           </div>
           <p className="text-xs text-gray-500">MP3, MP4, WAV up to 10MB</p>
         </div>
@@ -139,80 +115,117 @@ function UploadFile ({file, handleFileUpload}) {
   )
 }
 
-function Transcription({ 
-  language, 
-  setLanguage, 
-  diarization, 
-  setDiarization,
-  groupSegments,
-  setGroupSegments,
-  outputFormat,
-  setOutputFormat,
-  numSpeakers,
-  setNumSpeakers,
-  prompt,
-  setPrompt,
-  handleTranscribe
-}) {
-  const handleSubmit = async () => {
-    let data;
-    const result = await handleTranscribe(data);
-  }
+function Transcription() {
+  const [file, setFile] = useState(null);
+  const [prompt, setPrompt] = useState('');
+  const [progress, setProgress] = useState(0);
+
+  const handleFileUpload = (event) => {
+    const uploadedFile = event.target.files?.[0];
+    if (uploadedFile) {
+      setFile(uploadedFile);
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!file) {
+      console.error('No file selected');
+      return;
+    }
+
+    // Chunk size (e.g., 5MB)
+    const chunkSize = 5 * 1024 * 1024;
+    const chunks = Math.ceil(file.size / chunkSize);
+
+    for (let i = 0; i < chunks; i++) {
+      const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        const base64Chunk = e.target.result.split(',')[1]; // Remove the data URL prefix
+        
+        try {
+          const result = await handleTranscribe({
+            chunk: base64Chunk,
+            fileName: file.name,
+            chunkIndex: i,
+            totalChunks: chunks,
+            prompt: prompt
+          });
+          
+          // Update progress
+          setProgress(((i + 1) / chunks) * 100);
+          console.log(`Chunk ${i + 1}/${chunks} processed`);
+          
+          // Handle the result (e.g., update state with partial transcription)
+          console.log(result);
+        } catch (error) {
+          console.error('Error processing chunk:', error);
+        }
+      };
+
+      reader.readAsDataURL(chunk);
+    }
+
+    // Final processing after all chunks are done
+    console.log('Transcription complete');
+  };
 
   return (
-    <>
-      {/* <div>
-        <h2 className="text-lg font-medium text-gray-900">Transcription Settings</h2>
-        <div className="mt-3 grid grid-cols-1 gap-8 sm:grid-cols-2">
-          <div>
-            <label htmlFor="language" className="block text-sm font-medium text-gray-700">
-              Language
-            </label>
-            <p className="text-gray-500 text-sm">Use 2 letter designation (e.g. "en" or "es")</p>
-            <input
-              type="text"
-              name="language"
-              id="language"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="mt-1 p-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-              placeholder="e.g., English, Spanish, French"
-            />
-          </div>
-          <div>
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  id="diarization"
-                  name="diarization"
-                  type="checkbox"
-                  checked={diarization}
-                  onChange={(e) => setDiarization(e.target.checked)}
-                  className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                  />
-              </div>
-              <div className="ml-3 text-sm">
-                <label htmlFor="diarization" className="font-medium text-gray-700">
-                  Diarization
-                </label>
-                <p className="text-gray-500">Enable speaker identification</p>
-              </div>
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700">
+          Upload Audio
+        </label>
+        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+          <div className="space-y-1 text-center">
+            <Upload className="mx-auto h-12 w-12 text-gray-400" />
+            <div className="flex justify-center text-sm text-gray-600">
+              <label
+                htmlFor="file-upload"
+                className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+              >
+                <span>Upload a file</span>
+                <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileUpload} />
+              </label>
             </div>
+            <p className="text-xs text-gray-500">MP3, MP4, WAV up to 1 hour</p>
           </div>
         </div>
-      </div> */}
-      <form>
-        <button
-          type="button"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-900 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          onClick={handleSubmit}
-          >
-          <Settings className="mr-2 h-4 w-4" />
-          Transcribe
-        </button>
-      </form>
-    </>
-  )
+        {file && <p className="mt-2 text-sm text-gray-500">Selected file: {file.name}</p>}
+      </div>
+      <div>
+        <label htmlFor='prompt' className="block text-sm font-medium text-gray-700">
+          Prompt
+        </label>
+        <p className="text-gray-500 text-sm">Keywords to help the model understand</p>
+        <input
+          type='text'
+          name='prompt'
+          placeholder='BCI, stakeholder, usabilidad, Juan'
+          className="mt-1 p-1 text-black focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm"
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+      </div>
+      <button
+        type="submit"
+        className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-900 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        <Settings className="mr-2 h-4 w-4" />
+        Transcribe
+      </button>
+      {progress > 0 && (
+        <div className="mt-4">
+          <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div className="bg-blue-600 h-2.5 rounded-full" style={{width: `${progress}%`}}></div>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">Progress: {progress.toFixed(2)}%</p>
+        </div>
+      )}
+    </form>
+  );
 }
 
 function TranscriptionResult({

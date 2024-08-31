@@ -1,62 +1,51 @@
 'use server'
 
-import Replicate from "replicate";
-import { NextResponse } from "next/server";
+import Replicate from 'replicate';
 
-const replicate = new Replicate ({
-    auth: process.env.REPLICATE_API_KEY,
-})
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_KEY,
+});
 
-export const handleTranscribe = async (event, formData) => {
-    event.preventDefault();
+export async function handleTranscribe(data) {
+  if (!process.env.REPLICATE_API_KEY) {
+    throw new Error('Replicate API key not set');
+  }
 
-    console.log('---')
-    console.log('handleTranscribe started');
+  try {
+    const { chunk, fileName, chunkIndex, totalChunks, prompt } = data;
 
-    if (!process.env.REPLICATE_API_KEY) {
-        throw new Error(
-            'replicate api not set'
-        );
-    }
+    // Here, you might want to save the chunk to a temporary file or cloud storage
+    // For this example, we'll assume we're working with the base64 data directly
 
-    try {
-        // extract relevant data
-        const file = formData.get('file');
-        // const language = formData.get('language');
-        // const diarization = formData.get('diarization');
-        // const groupSegments = formData.get('groupSegments');
-        // const outputFormat = formData.get('outputFormat');
-        // const numSpeakers = formData.get('numSpeakers');
-        const prompt = formData.get('prompt');
+    const input = {
+      file: `data:audio/wav;base64,${chunk}`,
+      prompt: prompt,
+      language: 'es',
+      translate: false,
+      group_segments: true,
+      offset_seconds: 0,
+      transcription_output_format: 'segments_only'
+    };
 
-        const input = {
-            file: file,
-            prompt: prompt,
-            file_url: '',
-            language: 'es',
-            translate: false,
-            group_segments: true,
-            offset_seconds: 0,
-            transcription_output_format: 'segments_only'
-        }
+    const output = await replicate.run(
+      "thomasmol/whisper-diarization:aae6db69a923a6eab6bc3ec098148a8c9c999685be89f428a4a6072fca544d26",
+      { input }
+    );
 
-        const output = await replicate.run("thomasmol/whisper-diarization:aae6db69a923a6eab6bc3ec098148a8c9c999685be89f428a4a6072fca544d26", { input });
-        
-        console.log('Output transcription: ', output)
+    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} transcribed`);
 
-        return {
-            success: true,
-            rawTranscription: output,
-            formattedTranscription: "This is a placeholder for the formatted transcription. In a real application, this would be the formatted result from the transcription API.",
-            isTranscribed: true,
-        }
-    } catch (error) {
-        console.error('Error during transcription:', error.message);
-        return {
-            success: false,
-            error: error.meassage
-        }
-    } finally {
-        // setLoading(false);
-    }
-};
+    return {
+      success: true,
+      chunkIndex,
+      totalChunks,
+      rawTranscription: output,
+      formattedTranscription: "This is a placeholder for the formatted transcription. In a real application, this would be the formatted result from the transcription API.",
+    };
+  } catch (error) {
+    console.error('Error during transcription:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
